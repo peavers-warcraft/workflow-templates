@@ -14,6 +14,10 @@ name: Package and Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   package:
     uses: peavers-warcraft/workflow-templates/.github/workflows/packaging.yml@main
@@ -38,13 +42,16 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   release:
     uses: peavers-warcraft/workflow-templates/.github/workflows/release-on-push.yml@main
     with:
       toc_file: MyAddon.toc
       addon_name: MyAddon
-      repo_name: peavers/MyAddon
     secrets: inherit
 ```
 
@@ -53,7 +60,6 @@ jobs:
 |-------|----------|-------------|
 | `toc_file` | Yes | The TOC file to update (e.g., `MyAddon.toc`) |
 | `addon_name` | Yes | The addon name for git tags (e.g., `MyAddon`) |
-| `repo_name` | Yes | Full repo name for API calls (e.g., `peavers/MyAddon`) |
 
 ---
 
@@ -69,13 +75,16 @@ on:
     - cron: '0 */6 * * *'  # Every 6 hours
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   release:
     uses: peavers-warcraft/workflow-templates/.github/workflows/release-on-schedule.yml@main
     with:
       toc_file: MyDataAddon.toc
       addon_name: MyDataAddon
-      repo_name: peavers/MyDataAddon
     secrets: inherit
 ```
 
@@ -84,7 +93,6 @@ jobs:
 |-------|----------|---------|-------------|
 | `toc_file` | Yes | - | The TOC file to update |
 | `addon_name` | Yes | - | The addon name for git tags |
-| `repo_name` | Yes | - | Full repo name for API calls |
 | `packaging_workflow` | No | `packaging.yml` | Workflow filename to trigger |
 
 ---
@@ -100,6 +108,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'  # Daily at 2 AM
+
+permissions:
+  contents: write
 
 jobs:
   cleanup:
@@ -121,6 +132,10 @@ on:
     types: [opened, synchronize]
     branches:
       - master
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   auto-merge:
@@ -154,3 +169,8 @@ All calling repositories should have these secrets configured:
 ## Self-Hosted Runners
 
 All workflows use `runs-on: self-hosted`. Ensure your self-hosted runner is configured and available.
+
+## Notes
+
+- The `github.repository` context variable is used automatically to determine the current repo
+- No need to hardcode repository names in caller workflows
