@@ -11,10 +11,6 @@ on:
         description: 'The addon name for tagging (e.g., PeaversTalents)'
         required: true
         type: string
-      repo_name:
-        description: 'The full repo name for API calls (e.g., peavers/PeaversTalents)'
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -71,5 +67,5 @@ jobs:
           curl -X POST \
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token ${{ secrets.PERSONAL_ACCESS_TOKEN }}" \
-          https://api.github.com/repos/${{ inputs.repo_name }}/actions/workflows/packaging.yml/dispatches \
+          https://api.github.com/repos/${{ github.repository }}/actions/workflows/packaging.yml/dispatches \
           -d '{"ref":"master"}'

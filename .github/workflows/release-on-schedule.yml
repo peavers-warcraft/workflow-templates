@@ -11,10 +11,6 @@ on:
         description: 'The addon name for tagging (e.g., PeaversTalentsData)'
         required: true
         type: string
-      repo_name:
-        description: 'The full repo name for API calls (e.g., peavers/PeaversTalentsData)'
-        required: true
-        type: string
       packaging_workflow:
         description: 'The packaging workflow filename to trigger (default: packaging.yml)'
         required: false
@@ -76,5 +72,5 @@ jobs:
           curl -X POST \
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token ${{ secrets.PERSONAL_ACCESS_TOKEN }}" \
-          https://api.github.com/repos/${{ inputs.repo_name }}/actions/workflows/${{ inputs.packaging_workflow }}/dispatches \
+          https://api.github.com/repos/${{ github.repository }}/actions/workflows/${{ inputs.packaging_workflow }}/dispatches \
           -d '{"ref":"master"}'
