@@ -11,6 +11,16 @@ on:
         description: 'The addon name for tagging (e.g., PeaversTalents)'
         required: true
         type: string
+      git_user_name:
+        description: 'Git user name for commits'
+        required: false
+        type: string
+        default: 'github-actions[bot]'
+      git_user_email:
+        description: 'Git user email for commits'
+        required: false
+        type: string
+        default: 'github-actions[bot]@users.noreply.github.com'
 
 permissions:
   contents: write
@@ -48,8 +58,8 @@ jobs:
 
       - name: Commit TOC changes
         run: |
-          git config user.name "Chris Turner"
-          git config user.email "peavers@gmail.com"
+          git config user.name "${{ inputs.git_user_name }}"
+          git config user.email "${{ inputs.git_user_email }}"
           git add ${{ inputs.toc_file }}
           git commit -m "chore: Update TOC version to ${{ steps.get_version.outputs.new_version }}"
           git push
