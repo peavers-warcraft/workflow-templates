@@ -2,6 +2,12 @@ name: Package and Release
 
 on:
   workflow_call:
+    inputs:
+      use_self_hosted:
+        description: 'Use self-hosted runner instead of GitHub-hosted (default: true)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -9,7 +15,7 @@ permissions:
 
 jobs:
   package-and-release:
-    runs-on: self-hosted
+    runs-on: ${{ inputs.use_self_hosted && 'self-hosted' || 'ubuntu-latest' }}
     env:
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
       GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}

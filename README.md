@@ -166,9 +166,23 @@ All calling repositories should have these secrets configured:
 | `CF_API_KEY` | CurseForge API key for addon uploads |
 | `PERSONAL_ACCESS_TOKEN` | GitHub PAT with `repo` and `workflow` scopes |
 
-## Self-Hosted Runners
+## Runner Configuration
 
-All workflows use `runs-on: self-hosted`. Ensure your self-hosted runner is configured and available.
+All workflows support both self-hosted and GitHub-hosted runners via the `use_self_hosted` input:
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `use_self_hosted` | No | `true` | Use self-hosted runner (`true`) or GitHub-hosted ubuntu-latest (`false`) |
+
+**Example using GitHub-hosted runners:**
+```yaml
+jobs:
+  package:
+    uses: peavers-warcraft/workflow-templates/.github/workflows/packaging.yml@main
+    with:
+      use_self_hosted: false
+    secrets: inherit
+```
 
 ## Notes
 

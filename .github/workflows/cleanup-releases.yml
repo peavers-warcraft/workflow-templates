@@ -2,13 +2,19 @@ name: Cleanup Old Releases
 
 on:
   workflow_call:
+    inputs:
+      use_self_hosted:
+        description: 'Use self-hosted runner instead of GitHub-hosted (default: true)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
 jobs:
   cleanup-releases:
-    runs-on: self-hosted
+    runs-on: ${{ inputs.use_self_hosted && 'self-hosted' || 'ubuntu-latest' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
