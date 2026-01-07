@@ -12,6 +12,11 @@ on:
         required: false
         type: boolean
         default: true
+      require_checks:
+        description: 'Wait for status checks before merging (default: false)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,22 +37,41 @@ jobs:
           # Random delay between 10-60 seconds to help avoid race conditions
           sleep $(( RANDOM % 50 + 10 ))
 
-      - name: Enable auto-merge with retries
+      - name: Merge PR with retries
         run: |
           gh auth status
+
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          # Function to update PR branch if needed
+          update_branch() {
+            echo "Checking if PR branch needs updating..."
+            PR_DATA=$(gh pr view "$PR_NUMBER" --json mergeable,mergeStateStatus)
+            MERGE_STATE=$(echo "$PR_DATA" | jq -r '.mergeStateStatus')
+
+            if [ "$MERGE_STATE" = "BEHIND" ]; then
+              echo "PR is behind base branch, updating..."
+              gh pr update-branch "$PR_NUMBER" --rebase || true
+              sleep 10
+            fi
+          }
 
           # Function to attempt merge with retries
           attempt_merge() {
             for i in {1..5}; do
-              echo "Attempt $i to merge PR #${{ github.event.pull_request.number }}"
+              echo "Attempt $i to merge PR #$PR_NUMBER"
 
-              if gh pr merge "${{ github.event.pull_request.number }}" --rebase --auto; then
+              # Update branch if behind
+              update_branch
+
+              # Try direct merge first (no --auto flag)
+              if gh pr merge "$PR_NUMBER" --rebase; then
                 echo "Merge successful!"
                 exit 0
               else
                 if [ $i -lt 5 ]; then
                   echo "Merge failed. Waiting before retry..."
-                  sleep $(( 20 * i )) # Exponential backoff
+                  sleep $(( 30 * i )) # Exponential backoff
                 fi
               fi
             done
