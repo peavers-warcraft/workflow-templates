@@ -12,10 +12,10 @@ on:
         required: true
         type: string
       packaging_workflow:
-        description: 'The packaging workflow filename to trigger (default: packaging.yml)'
+        description: 'The packaging workflow filename to trigger (default: package-and-release.yml)'
         required: false
         type: string
-        default: 'packaging.yml'
+        default: 'package-and-release.yml'
       git_user_name:
         description: 'Git user name for commits'
         required: false
