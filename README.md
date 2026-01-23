@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   package:
-    uses: peavers-warcraft/workflow-templates/.github/workflows/packaging.yml@main
+    uses: peavers-warcraft/workflow-templates/.github/workflows/package-and-release.yml@main
     secrets: inherit
 ```
 
@@ -178,7 +178,7 @@ All workflows support both self-hosted and GitHub-hosted runners via the `use_se
 ```yaml
 jobs:
   package:
-    uses: peavers-warcraft/workflow-templates/.github/workflows/packaging.yml@main
+    uses: peavers-warcraft/workflow-templates/.github/workflows/package-and-release.yml@main
     with:
       use_self_hosted: false
     secrets: inherit
