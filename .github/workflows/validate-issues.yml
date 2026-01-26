@@ -192,25 +192,27 @@ jobs:
           ERROR_LIST=$(cat "$ERROR_FILE")
 
           # Build the comment message
-          COMMENT="Thank you for taking the time to open an issue! However, this issue is missing some required information:
-
-$ERROR_LIST
-
-**To help us address your issue quickly, please:**
-1. Click \"New Issue\" and select the appropriate template (Bug Report or Feature Request)
-2. Fill in ALL required fields
-3. Provide as much detail as possible
-
-For bug reports, please include:
-- Your WoW version (Retail, Classic, etc.)
-- The addon version number
-- Steps to reproduce the issue
-- Any Lua error text (from BugSack/BugGrabber)
-
-This helps us understand and fix problems faster. Thank you for your cooperation!"
+          {
+            echo "Thank you for taking the time to open an issue! However, this issue is missing some required information:"
+            echo ""
+            cat "$ERROR_FILE"
+            echo ""
+            echo "**To help us address your issue quickly, please:**"
+            echo "1. Click \"New Issue\" and select the appropriate template (Bug Report or Feature Request)"
+            echo "2. Fill in ALL required fields"
+            echo "3. Provide as much detail as possible"
+            echo ""
+            echo "For bug reports, please include:"
+            echo "- Your WoW version (Retail, Classic, etc.)"
+            echo "- The addon version number"
+            echo "- Steps to reproduce the issue"
+            echo "- Any Lua error text (from BugSack/BugGrabber)"
+            echo ""
+            echo "This helps us understand and fix problems faster. Thank you for your cooperation!"
+          } > "$RUNNER_TEMP/comment.txt"
 
           # Post comment and close
-          gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --comment "$COMMENT"
+          gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" -c "$(cat "$RUNNER_TEMP/comment.txt")"
 
           echo "Issue closed due to missing required information"
 
