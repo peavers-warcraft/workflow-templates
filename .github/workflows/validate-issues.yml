@@ -1,0 +1,225 @@
+name: Validate Issues
+
+on:
+  workflow_call:
+    inputs:
+      use_self_hosted:
+        description: 'Use self-hosted runner instead of GitHub-hosted (default: true)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  issues: write
+
+jobs:
+  validate:
+    runs-on: ${{ inputs.use_self_hosted && 'self-hosted' || 'ubuntu-latest' }}
+    steps:
+      - name: Validate issue content
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          echo "Issue #$ISSUE_NUMBER"
+          echo "Title: $ISSUE_TITLE"
+
+          # Write issue body safely using printf to avoid heredoc injection
+          printf '%s' "$ISSUE_BODY" > "$RUNNER_TEMP/issue_body.txt"
+
+          errors=()
+          is_bug_report=false
+          is_feature_request=false
+
+          # Detect issue type from title prefix
+          if [[ "$ISSUE_TITLE" == "[Bug]:"* ]]; then
+            is_bug_report=true
+            echo "Detected: Bug Report"
+          elif [[ "$ISSUE_TITLE" == "[Feature]:"* ]]; then
+            is_feature_request=true
+            echo "Detected: Feature Request"
+          fi
+
+          # Function to extract field content between headers
+          # Handles both mid-document fields and the last field in the document
+          extract_field() {
+            local field_name="$1"
+            local body="$ISSUE_BODY"
+
+            # Use awk to extract content between "### $field_name" and the next "### " or end of file
+            local content
+            content=$(echo "$body" | awk -v field="### $field_name" '
+              BEGIN { found=0; content="" }
+              $0 ~ "^"field { found=1; next }
+              found && /^### / { found=0 }
+              found { content = content $0 "\n" }
+              END { print content }
+            ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr -d '\n' | xargs)
+
+            echo "$content"
+          }
+
+          # Function to check if a field is empty or has placeholder text
+          check_field() {
+            local field_name="$1"
+            local content
+            content=$(extract_field "$field_name")
+
+            # Check for empty or common non-answers
+            if [[ -z "$content" ]] || \
+               [[ "$content" == "_No response_" ]] || \
+               [[ "$content" == "No response" ]] || \
+               [[ "$content" == "N/A" ]] || \
+               [[ "$content" == "n/a" ]] || \
+               [[ "$content" == "none" ]] || \
+               [[ "$content" == "None" ]]; then
+              return 1
+            fi
+            return 0
+          }
+
+          # Check if the issue uses a template at all (look for form headers)
+          if ! echo "$ISSUE_BODY" | grep -q "^### "; then
+            errors+=("This issue doesn't appear to use the required template. Please create a new issue using the Bug Report or Feature Request template.")
+          else
+            # Validate Bug Report fields
+            if [[ "$is_bug_report" == true ]]; then
+              # Check WoW Version
+              if ! echo "$ISSUE_BODY" | grep -q "### WoW Version"; then
+                errors+=("Missing WoW Version field")
+              elif ! check_field "WoW Version"; then
+                errors+=("Please select your WoW Version")
+              fi
+
+              # Check Addon Version
+              if ! echo "$ISSUE_BODY" | grep -q "### Addon Version"; then
+                errors+=("Missing Addon Version field")
+              elif ! check_field "Addon Version"; then
+                errors+=("Please provide the Addon Version")
+              fi
+
+              # Check Bug Description
+              if ! echo "$ISSUE_BODY" | grep -q "### Bug Description"; then
+                errors+=("Missing Bug Description field")
+              elif ! check_field "Bug Description"; then
+                errors+=("Please describe the bug")
+              fi
+
+              # Check Steps to Reproduce
+              if ! echo "$ISSUE_BODY" | grep -q "### Steps to Reproduce"; then
+                errors+=("Missing Steps to Reproduce field")
+              elif ! check_field "Steps to Reproduce"; then
+                errors+=("Please provide steps to reproduce the bug")
+              fi
+
+              # Check Expected Behavior
+              if ! echo "$ISSUE_BODY" | grep -q "### Expected Behavior"; then
+                errors+=("Missing Expected Behavior field")
+              elif ! check_field "Expected Behavior"; then
+                errors+=("Please describe the expected behavior")
+              fi
+
+              # Check Lua Error Text
+              if ! echo "$ISSUE_BODY" | grep -q "### Lua Error Text"; then
+                errors+=("Missing Lua Error Text field")
+              elif ! check_field "Lua Error Text"; then
+                errors+=("Please provide the Lua error text (or write 'No error displayed' if there was no error)")
+              fi
+            fi
+
+            # Validate Feature Request fields
+            if [[ "$is_feature_request" == true ]]; then
+              # Check Problem or Use Case
+              if ! echo "$ISSUE_BODY" | grep -q "### Problem or Use Case"; then
+                errors+=("Missing Problem or Use Case field")
+              elif ! check_field "Problem or Use Case"; then
+                errors+=("Please describe the problem or use case")
+              fi
+
+              # Check Proposed Solution
+              if ! echo "$ISSUE_BODY" | grep -q "### Proposed Solution"; then
+                errors+=("Missing Proposed Solution field")
+              elif ! check_field "Proposed Solution"; then
+                errors+=("Please describe your proposed solution")
+              fi
+
+              # Check Priority
+              if ! echo "$ISSUE_BODY" | grep -q "### Priority"; then
+                errors+=("Missing Priority field")
+              elif ! check_field "Priority"; then
+                errors+=("Please select a priority")
+              fi
+            fi
+
+            # If we couldn't detect the issue type but it has form headers, it might be valid
+            if [[ "$is_bug_report" == false ]] && [[ "$is_feature_request" == false ]]; then
+              if echo "$ISSUE_BODY" | grep -q "^### "; then
+                echo "Issue uses a template but type not detected from title, allowing it"
+              fi
+            fi
+          fi
+
+          # Output results
+          if [ ${#errors[@]} -gt 0 ]; then
+            echo "is_valid=false" >> "$GITHUB_OUTPUT"
+
+            # Build error message and save to file to avoid delimiter injection
+            {
+              for error in "${errors[@]}"; do
+                echo "- $error"
+              done
+            } > "$RUNNER_TEMP/error_list.txt"
+
+            echo "error_file=$RUNNER_TEMP/error_list.txt" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_valid=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Close invalid issue
+        if: steps.validate.outputs.is_valid == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ERROR_FILE: ${{ steps.validate.outputs.error_file }}
+        run: |
+          # Add invalid label
+          gh issue edit "$ISSUE_NUMBER" --add-label "invalid" --repo "$GITHUB_REPOSITORY" || true
+
+          # Read error list from file
+          ERROR_LIST=$(cat "$ERROR_FILE")
+
+          # Build the comment message
+          COMMENT="Thank you for taking the time to open an issue! However, this issue is missing some required information:
+
+$ERROR_LIST
+
+**To help us address your issue quickly, please:**
+1. Click \"New Issue\" and select the appropriate template (Bug Report or Feature Request)
+2. Fill in ALL required fields
+3. Provide as much detail as possible
+
+For bug reports, please include:
+- Your WoW version (Retail, Classic, etc.)
+- The addon version number
+- Steps to reproduce the issue
+- Any Lua error text (from BugSack/BugGrabber)
+
+This helps us understand and fix problems faster. Thank you for your cooperation!"
+
+          # Post comment and close
+          gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --comment "$COMMENT"
+
+          echo "Issue closed due to missing required information"
+
+      - name: Add validated label
+        if: steps.validate.outputs.is_valid == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # Optionally add a validated label (uncomment if desired)
+          # gh issue edit "$ISSUE_NUMBER" --add-label "validated" --repo "$GITHUB_REPOSITORY" || true
+          echo "Issue validated successfully"
