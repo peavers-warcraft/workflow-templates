@@ -1,0 +1,170 @@
+name: Sync Issue Templates
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview changes without pushing'
+        type: boolean
+        default: false
+      target_repo:
+        description: 'Sync to specific repo only (leave empty for all)'
+        type: string
+        default: ''
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/ISSUE_TEMPLATE/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - PeaversTalents
+          - PeaversCommons
+          - PeaversDynamicStats
+          - PeaversRealValue
+          - PeaversRemembersYou
+          - PeaversAlwaysSquare
+          - PeaversTalentsData
+          - PeaversCurrencyData
+    steps:
+      - name: Check if should run for this repo
+        id: should-run
+        run: |
+          TARGET="${{ inputs.target_repo }}"
+          CURRENT="${{ matrix.repo }}"
+
+          if [[ -z "$TARGET" ]] || [[ "$TARGET" == "$CURRENT" ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "Skipping $CURRENT (target is $TARGET)"
+          fi
+
+      - name: Checkout workflow-templates
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout target repo
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: peavers-warcraft/${{ matrix.repo }}
+          path: target
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: Sync templates
+        if: steps.should-run.outputs.should_run == 'true'
+        id: sync
+        run: |
+          cd target
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create unique branch name
+          BRANCH_NAME="sync/issue-templates-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+
+          # Ensure .github directory exists
+          mkdir -p .github/ISSUE_TEMPLATE
+          mkdir -p .github/workflows
+
+          # Copy issue templates
+          cp -r ../source/.github/ISSUE_TEMPLATE/* .github/ISSUE_TEMPLATE/
+
+          # Copy caller workflow if it doesn't exist or update it
+          if [ ! -f .github/workflows/validate-issues.yml ]; then
+            cat > .github/workflows/validate-issues.yml << 'EOF'
+          name: Validate Issues
+
+          on:
+            issues:
+              types: [opened]
+
+          permissions:
+            issues: write
+
+          jobs:
+            validate:
+              uses: peavers-warcraft/workflow-templates/.github/workflows/validate-issues.yml@main
+              secrets: inherit
+          EOF
+          fi
+
+          # Check for changes
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "No changes to sync"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          # Stage and commit
+          git add .github/
+          git commit -m "chore: Sync issue templates from workflow-templates"
+
+          # Push (unless dry run)
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "DRY RUN: Would push branch $BRANCH_NAME"
+            echo "Changes:"
+            git diff HEAD~1 --stat
+          else
+            git push origin "$BRANCH_NAME"
+          fi
+
+      - name: Create Pull Request
+        if: steps.should-run.outputs.should_run == 'true' && steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          cd target
+
+          gh pr create \
+            --title "Sync issue templates from workflow-templates" \
+            --body "$(cat <<'EOF'
+          ## Summary
+          This PR syncs the latest issue templates from the [workflow-templates](https://github.com/peavers-warcraft/workflow-templates) repository.
+
+          ## Changes
+          - Updated `.github/ISSUE_TEMPLATE/` directory
+          - Added/updated validation workflow
+
+          ## What's included
+          - **Bug Report template**: Guides users to provide WoW version, addon version, error text, and reproduction steps
+          - **Feature Request template**: Structured feature proposals
+          - **Issue validation workflow**: Auto-closes issues that don't follow the template
+
+          ---
+          *This PR was automatically created by the template sync workflow.*
+          EOF
+          )" \
+            --base master \
+            --label "automated" || echo "PR may already exist"
+
+      - name: Summary
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          if [[ "${{ steps.sync.outputs.has_changes }}" == "true" ]]; then
+            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+              echo "### ${{ matrix.repo }}: Would create PR (dry run)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### ${{ matrix.repo }}: PR created" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### ${{ matrix.repo }}: No changes needed" >> $GITHUB_STEP_SUMMARY
+          fi
