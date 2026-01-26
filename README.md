@@ -157,6 +157,97 @@ jobs:
 
 ---
 
+### 6. `validate-issues.yml` - Issue Template Validation
+
+Validates that new issues follow the required templates and auto-closes issues that don't provide required information.
+
+**Usage:**
+```yaml
+name: Validate Issues
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  validate:
+    uses: peavers-warcraft/workflow-templates/.github/workflows/validate-issues.yml@main
+    secrets: inherit
+```
+
+**Validation Rules:**
+- Detects if issue uses Bug Report or Feature Request template (by title prefix)
+- Bug reports must include: WoW version, addon version, bug description, steps to reproduce, expected behavior, Lua error text
+- Feature requests must include: problem/use case, proposed solution, priority
+- Issues not using a template are auto-closed with a friendly message
+
+**Inputs:**
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `use_self_hosted` | No | `true` | Use self-hosted runner |
+
+---
+
+### 7. `sync-issue-templates.yml` - Sync Templates to All Repos
+
+Syncs issue templates from workflow-templates to all addon repositories via pull requests.
+
+**Triggers:**
+- Manual dispatch (with optional dry-run mode)
+- Automatic on push to `.github/ISSUE_TEMPLATE/**`
+
+**Target Repositories:**
+- PeaversTalents
+- PeaversCommons
+- PeaversDynamicStats
+- PeaversRealValue
+- PeaversRemembersYou
+- PeaversAlwaysSquare
+- PeaversTalentsData
+- PeaversCurrencyData
+
+**Inputs (workflow_dispatch):**
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `dry_run` | No | `false` | Preview changes without creating PRs |
+| `target_repo` | No | `` | Sync to specific repo only (empty = all repos) |
+
+**Required Secrets:**
+- `PERSONAL_ACCESS_TOKEN` - GitHub PAT with `repo` scope for cross-repo access
+
+---
+
+## Issue Templates
+
+This repository contains the canonical issue templates used by all addon repositories:
+
+### Bug Report (`bug_report.yml`)
+Structured form requiring:
+- WoW Version (dropdown: Retail, Classic Era, Cataclysm Classic, etc.)
+- Addon Version
+- Bug Description
+- Steps to Reproduce
+- Expected Behavior
+- Lua Error Text (or "No error displayed")
+- Other Addons (optional)
+- Screenshots (optional)
+
+### Feature Request (`feature_request.yml`)
+Structured form requiring:
+- Problem or Use Case
+- Proposed Solution
+- Alternatives Considered (optional)
+- Priority (dropdown)
+- Mockups/Examples (optional)
+
+### Configuration (`config.yml`)
+- Disables blank issues
+- Provides link to Discord for general questions and support
+
+---
+
 ## Required Repository Secrets
 
 All calling repositories should have these secrets configured:

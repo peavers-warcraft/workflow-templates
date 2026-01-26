@@ -22,11 +22,13 @@ body:
       label: WoW Version
       description: Which version of World of Warcraft are you playing?
       options:
-        - Retail (The War Within - 11.x)
-        - Classic Era (1.15.x)
-        - Cataclysm Classic (4.4.x)
+        - Retail
+        - Retail PTR/Beta
+        - Classic Era
+        - Classic Era Hardcore
         - Season of Discovery
-        - Hardcore Classic
+        - Cataclysm Classic
+        - Classic PTR/Beta
     validations:
       required: true
 
