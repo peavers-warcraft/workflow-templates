@@ -143,8 +143,7 @@ jobs:
           gh pr create \
             --title "Sync issue templates from workflow-templates" \
             --body-file /tmp/pr_body.md \
-            --base master \
-            --label "automated" || echo "PR may already exist"
+            --base master || echo "PR may already exist or failed to create"
 
       - name: Summary
         if: steps.should-run.outputs.should_run == 'true'
