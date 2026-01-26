@@ -88,20 +88,20 @@ jobs:
           # Copy caller workflow if it doesn't exist or update it
           if [ ! -f .github/workflows/validate-issues.yml ]; then
             cat > .github/workflows/validate-issues.yml << 'EOF'
-          name: Validate Issues
+name: Validate Issues
 
-          on:
-            issues:
-              types: [opened]
+on:
+  issues:
+    types: [opened]
 
-          permissions:
-            issues: write
+permissions:
+  issues: write
 
-          jobs:
-            validate:
-              uses: peavers-warcraft/workflow-templates/.github/workflows/validate-issues.yml@main
-              secrets: inherit
-          EOF
+jobs:
+  validate:
+    uses: peavers-warcraft/workflow-templates/.github/workflows/validate-issues.yml@main
+    secrets: inherit
+EOF
           fi
 
           # Check for changes
@@ -136,23 +136,20 @@ jobs:
 
           gh pr create \
             --title "Sync issue templates from workflow-templates" \
-            --body "$(cat <<'EOF'
-          ## Summary
-          This PR syncs the latest issue templates from the [workflow-templates](https://github.com/peavers-warcraft/workflow-templates) repository.
+            --body "## Summary
+This PR syncs the latest issue templates from the [workflow-templates](https://github.com/peavers-warcraft/workflow-templates) repository.
 
-          ## Changes
-          - Updated `.github/ISSUE_TEMPLATE/` directory
-          - Added/updated validation workflow
+## Changes
+- Updated \`.github/ISSUE_TEMPLATE/\` directory
+- Added/updated validation workflow
 
-          ## What's included
-          - **Bug Report template**: Guides users to provide WoW version, addon version, error text, and reproduction steps
-          - **Feature Request template**: Structured feature proposals
-          - **Issue validation workflow**: Auto-closes issues that don't follow the template
+## What's included
+- **Bug Report template**: Guides users to provide WoW version, addon version, error text, and reproduction steps
+- **Feature Request template**: Structured feature proposals
+- **Issue validation workflow**: Auto-closes issues that don't follow the template
 
-          ---
-          *This PR was automatically created by the template sync workflow.*
-          EOF
-          )" \
+---
+*This PR was automatically created by the template sync workflow.*" \
             --base master \
             --label "automated" || echo "PR may already exist"
 
