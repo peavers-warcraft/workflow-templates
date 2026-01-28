@@ -1,0 +1,61 @@
+name: 'Notify Discord'
+description: 'Send a Discord notification for workflow failures'
+
+inputs:
+  webhook_url:
+    description: 'Discord webhook URL'
+    required: true
+  status:
+    description: 'Workflow status (failure, success, cancelled)'
+    required: false
+    default: 'failure'
+  title:
+    description: 'Custom title for the notification'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Discord notification
+      shell: bash
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook_url }}
+        STATUS: ${{ inputs.status }}
+        CUSTOM_TITLE: ${{ inputs.title }}
+        REPO: ${{ github.repository }}
+        WORKFLOW: ${{ github.workflow }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        ACTOR: ${{ github.actor }}
+        REF: ${{ github.ref_name }}
+      run: |
+        if [ "$STATUS" = "failure" ]; then
+          COLOR=15158332  # Red
+          EMOJI=":x:"
+          DEFAULT_TITLE="Workflow Failed"
+        elif [ "$STATUS" = "cancelled" ]; then
+          COLOR=9807270   # Gray
+          EMOJI=":warning:"
+          DEFAULT_TITLE="Workflow Cancelled"
+        else
+          COLOR=3066993   # Green
+          EMOJI=":white_check_mark:"
+          DEFAULT_TITLE="Workflow Succeeded"
+        fi
+
+        TITLE="${CUSTOM_TITLE:-$DEFAULT_TITLE}"
+
+        curl -s -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"$EMOJI $TITLE\",
+              \"description\": \"**Workflow:** $WORKFLOW\n**Repository:** $REPO\n**Branch:** $REF\n**Triggered by:** $ACTOR\",
+              \"color\": $COLOR,
+              \"url\": \"$RUN_URL\",
+              \"footer\": {
+                \"text\": \"GitHub Actions\"
+              },
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" \
+          "$WEBHOOK_URL"
