@@ -82,16 +82,31 @@ jobs:
           git push origin "$NEW_TAG"
           echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
 
-      - name: Checkout the tag for packager
+      - name: Package addon
+        id: package
         run: |
-          git fetch --tags --force
-          git checkout "${{ steps.tag.outputs.tag }}"
+          RELEASE_DIR="${{ inputs.addon_name }}"
+          ZIP_NAME="${{ inputs.addon_name }}-${{ steps.version.outputs.new_version }}.zip"
 
-      - name: Package and release
-        uses: BigWigsMods/packager@v2
+          # Create clean copy excluding non-addon files
+          mkdir -p "$RELEASE_DIR"
+          find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name '.github' ! -name '.pkgmeta' ! -name '.gitignore' ! -name '*.md' ! -name "$RELEASE_DIR" -exec cp -r {} "$RELEASE_DIR/" \;
+
+          # Create zip and cleanup
+          zip -r "$ZIP_NAME" "$RELEASE_DIR"
+          rm -rf "$RELEASE_DIR"
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
         env:
-          CF_API_KEY: ${{ secrets.CF_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            "${{ steps.package.outputs.zip_name }}" \
+            --title "${{ inputs.addon_name }} v${{ steps.version.outputs.new_version }}" \
+            --notes "Release ${{ steps.version.outputs.new_version }}" \
+            --latest
+
 
   notify-failure:
     runs-on: ubuntu-latest
