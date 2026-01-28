@@ -225,3 +225,14 @@ jobs:
           # Optionally add a validated label (uncomment if desired)
           # gh issue edit "$ISSUE_NUMBER" --add-label "validated" --repo "$GITHUB_REPOSITORY" || true
           echo "Issue validated successfully"
+
+  notify-failure:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: failure()
+    steps:
+      - name: Notify Discord
+        uses: peavers-warcraft/workflow-templates/.github/actions/notify-discord@master
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "Issue Validation Failed"

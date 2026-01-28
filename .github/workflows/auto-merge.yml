@@ -101,21 +101,8 @@ jobs:
     needs: auto-merge
     if: failure()
     steps:
-      - name: Send Discord notification
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          curl -H "Content-Type: application/json" \
-            -d "{
-              \"embeds\": [{
-                \"title\": \":x: Auto-merge Failed\",
-                \"description\": \"**Repository:** ${{ github.repository }}\n**PR:** #${{ github.event.pull_request.number }}\",
-                \"color\": 15158332,
-                \"url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
-                \"footer\": {
-                  \"text\": \"GitHub Actions\"
-                },
-                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-              }]
-            }" \
-            "$DISCORD_WEBHOOK_URL"
+      - name: Notify Discord
+        uses: peavers-warcraft/workflow-templates/.github/actions/notify-discord@master
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "Auto-merge Failed"
