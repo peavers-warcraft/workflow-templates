@@ -29,19 +29,21 @@ jobs:
       fail-fast: false
       matrix:
         repo:
-          - PeaversTalents
+          - PeaversAlwaysSquare
+          - PeaversBestInSlot
+          - PeaversBestInSlotData
+          - PeaversCVars
           - PeaversCommons
+          - PeaversCurrencyData
           - PeaversDynamicStats
+          - PeaversItemLevel
           - PeaversRealValue
           - PeaversRemembersYou
-          - PeaversAlwaysSquare
-          - PeaversTalentsData
-          - PeaversCurrencyData
-          - PeaversCVars
           - PeaversSafeList
-          - PeaversItemLevel
           - PeaversSpellExporter
           - PeaversSystemBars
+          - PeaversTalents
+          - PeaversTalentsData
           - PeaversUI
     steps:
       - name: Check if should run for this repo
