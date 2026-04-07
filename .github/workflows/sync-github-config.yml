@@ -37,6 +37,9 @@ jobs:
           - PeaversCurrencyData
           - PeaversDynamicStats
           - PeaversItemLevel
+          - PeaversLustNow
+          - PeaversLustNowData
+          - PeaversNeedThat
           - PeaversRealValue
           - PeaversRemembersYou
           - PeaversSafeList
