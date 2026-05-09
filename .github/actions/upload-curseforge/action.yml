@@ -128,7 +128,7 @@ runs:
             if [ -n "$DEP_TYPE" ]; then
               if echo "$line" | grep -qE '^\s+-\s+'; then
                 SLUG=$(echo "$line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | tr -d '[:space:]')
-                RELATIONS=$(echo "$RELATIONS" | jq --arg slug "$SLUG" --arg type "$DEP_TYPE" \
+                RELATIONS=$(echo "$RELATIONS" | jq -c --arg slug "$SLUG" --arg type "$DEP_TYPE" \
                   '.projects += [{"slug": $slug, "type": $type}]')
               else
                 DEP_TYPE=""
