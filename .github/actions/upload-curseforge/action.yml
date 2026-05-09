@@ -103,6 +103,44 @@ runs:
         echo "version_ids=$VERSION_IDS" >> $GITHUB_OUTPUT
         echo "Using CurseForge version IDs: $VERSION_IDS"
 
+    - name: Parse dependencies from .pkgmeta
+      id: deps
+      shell: bash
+      run: |
+        PKGMETA_DIR=$(dirname "${{ inputs.toc_file }}")
+        PKGMETA="$PKGMETA_DIR/.pkgmeta"
+        if [ "$PKGMETA_DIR" = "." ]; then
+          PKGMETA=".pkgmeta"
+        fi
+
+        RELATIONS='{"projects":[]}'
+        if [ -f "$PKGMETA" ]; then
+          DEP_TYPE=""
+          while IFS= read -r line; do
+            if echo "$line" | grep -qE '^required-dependencies:'; then
+              DEP_TYPE="requiredDependency"
+              continue
+            fi
+            if echo "$line" | grep -qE '^optional-dependencies:'; then
+              DEP_TYPE="optionalDependency"
+              continue
+            fi
+            if [ -n "$DEP_TYPE" ]; then
+              if echo "$line" | grep -qE '^\s+-\s+'; then
+                SLUG=$(echo "$line" | sed -E 's/^[[:space:]]*-[[:space:]]*//' | tr -d '[:space:]')
+                RELATIONS=$(echo "$RELATIONS" | jq --arg slug "$SLUG" --arg type "$DEP_TYPE" \
+                  '.projects += [{"slug": $slug, "type": $type}]')
+              else
+                DEP_TYPE=""
+              fi
+            fi
+          done < "$PKGMETA"
+        fi
+
+        PROJECT_COUNT=$(echo "$RELATIONS" | jq '.projects | length')
+        echo "relations=$RELATIONS" >> $GITHUB_OUTPUT
+        echo "Found $PROJECT_COUNT dependencies"
+
     - name: Upload to CurseForge
       id: upload
       shell: bash
@@ -115,17 +153,29 @@ runs:
         RELEASE_TYPE="${{ inputs.release_type }}"
         CHANGELOG="${{ inputs.changelog }}"
         CHANGELOG_TYPE="${{ inputs.changelog_type }}"
+        RELATIONS='${{ steps.deps.outputs.relations }}'
 
         # Build game versions array for JSON
         VERSIONS_ARRAY=$(echo "$VERSION_IDS" | tr ',' '\n' | jq -R 'tonumber' | jq -s '.')
 
         # Build metadata JSON
-        METADATA=$(jq -n \
-          --argjson gameVersions "$VERSIONS_ARRAY" \
-          --arg releaseType "$RELEASE_TYPE" \
-          --arg changelog "$CHANGELOG" \
-          --arg changelogType "$CHANGELOG_TYPE" \
-          '{changelog: $changelog, changelogType: $changelogType, releaseType: $releaseType, gameVersions: $gameVersions}')
+        PROJECT_COUNT=$(echo "$RELATIONS" | jq '.projects | length')
+        if [ "$PROJECT_COUNT" -gt 0 ]; then
+          METADATA=$(jq -n \
+            --argjson gameVersions "$VERSIONS_ARRAY" \
+            --arg releaseType "$RELEASE_TYPE" \
+            --arg changelog "$CHANGELOG" \
+            --arg changelogType "$CHANGELOG_TYPE" \
+            --argjson relations "$RELATIONS" \
+            '{changelog: $changelog, changelogType: $changelogType, releaseType: $releaseType, gameVersions: $gameVersions, relations: $relations}')
+        else
+          METADATA=$(jq -n \
+            --argjson gameVersions "$VERSIONS_ARRAY" \
+            --arg releaseType "$RELEASE_TYPE" \
+            --arg changelog "$CHANGELOG" \
+            --arg changelogType "$CHANGELOG_TYPE" \
+            '{changelog: $changelog, changelogType: $changelogType, releaseType: $releaseType, gameVersions: $gameVersions}')
+        fi
 
         echo "Uploading to CurseForge project $PROJECT_ID..."
         echo "Metadata: $METADATA"
