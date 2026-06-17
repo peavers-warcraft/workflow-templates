@@ -39,10 +39,10 @@ jobs:
 
           echo "Fetching all releases..."
 
-          # Get all releases sorted by creation date (newest first)
-          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate --jq 'sort_by(.created_at) | reverse | .[].id')
+          # Get all releases (id + tag) sorted by creation date (newest first)
+          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate --jq 'sort_by(.created_at) | reverse | .[] | "\(.id)|\(.tag_name)"')
 
-          # Convert to array
+          # Convert to array (each element is "id|tag_name"; tag names have no spaces)
           RELEASE_ARRAY=($RELEASES)
 
           # Count total releases
@@ -55,14 +55,17 @@ jobs:
           fi
 
           # Keep the first one (most recent), delete the rest
-          echo "Keeping the most recent release (ID: ${RELEASE_ARRAY[0]})"
-          echo "Will delete $((TOTAL_RELEASES - 1)) releases..."
+          echo "Keeping the most recent release (ID: ${RELEASE_ARRAY[0]%%|*}, tag: ${RELEASE_ARRAY[0]#*|})"
+          echo "Will delete $((TOTAL_RELEASES - 1)) releases (and their tags)..."
 
           DELETED=0
+          TAGS_DELETED=0
           FAILED=0
 
           for ((i=1; i<$TOTAL_RELEASES; i++)); do
-            RELEASE_ID=${RELEASE_ARRAY[$i]}
+            ENTRY=${RELEASE_ARRAY[$i]}
+            RELEASE_ID=${ENTRY%%|*}
+            TAG_NAME=${ENTRY#*|}
 
             # Show progress every 100 deletions
             if [ $((i % 100)) -eq 0 ]; then
@@ -75,6 +78,11 @@ jobs:
 
             if [ $EXIT_CODE -eq 0 ]; then
               ((DELETED++))
+              # Deleting a release leaves its tag behind, so delete the tag too — otherwise
+              # tags accumulate indefinitely (thousands of tag-only refs over time).
+              if [ -n "$TAG_NAME" ] && [ "$TAG_NAME" != "null" ]; then
+                gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$TAG_NAME" >/dev/null 2>&1 && ((TAGS_DELETED++))
+              fi
             else
               # Show detailed error for first 5 failures
               if [ $FAILED -lt 5 ]; then
@@ -92,8 +100,8 @@ jobs:
 
           echo "============================================="
           echo "Cleanup completed!"
-          echo "Kept: 1 release"
-          echo "Deleted: $DELETED releases"
+          echo "Kept: 1 release (+ its tag)"
+          echo "Deleted: $DELETED releases, $TAGS_DELETED tags"
           echo "Failed: $FAILED releases"
           echo "============================================="
 
